@@ -30,7 +30,7 @@ import userRouter from "./routes/user.routes.js"
 
 
 // routes declaration
-// When you write routes in same file where get the route 
+// When you write routes in same file where .get the route 
 
 //---- app.use as middleware to use route due to separate the route file
 
