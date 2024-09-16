@@ -27,6 +27,11 @@ const registerUser = asyncHandler(async(req,res) =>{
 
     // Get data from the user
     const {fullName,email,username,password} = req.body
+
+// req.body response
+// console.log("req.body response", req.body);
+
+
     // console.log(`email: ${email}`);
 
     // if (fullName === ""){
@@ -43,7 +48,7 @@ const registerUser = asyncHandler(async(req,res) =>{
     
 
     // Check if user already exists: username , email
-    const existedUser = User.findOne({
+    const existedUser = await User.findOne({
         // $operator to perfrom operations
         // $or take array and we pass all the object which we want to Check
         
@@ -55,19 +60,39 @@ const registerUser = asyncHandler(async(req,res) =>{
      }   
 
     
+// response of req.file-
+// console.log("req.files response\n",req.files);
+
+
     // Check for image , check for avatar
     // May be that file exist or not exits - Optional chaining
     const avatarLoaclPath = req.files?.avatar[0]?.path; // it gives you the whole path which is uploaded by multer
-    const coverImageLocalPath = req.files?.coverImage[0]?.path
+
+    // const coverImageLocalPath = req.files?.coverImage[0]?.path // it give error of can't read empty element
+
+    // classic if else for checking coverImage
+    let coverImageLocalPath;
+    if(req.files && Array.isArray(req.files.coverImage) && req.files.coverImage.length >0) {
+        coverImageLocalPath = req.files.coverImage[0].path
+    }
 
      if(!avatarLoaclPath){
         throw new ApiError(400 , "Avatar file is required")
      }
 
 
+// avatarLoaclPath response 
+// console.log("avatarLoaclPath response", avatarLoaclPath);
+
+
     // upload them to cloudinary, avatar
     const avatar = await uploadOnCloudinary(avatarLoaclPath) 
     const coverImage = await uploadOnCloudinary(coverImageLocalPath) 
+
+
+// avatar response
+// console.log("avatar response", avatar);
+
 
     // If avatar not available then throw error 
     if(!avatar) {
