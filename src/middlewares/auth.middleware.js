@@ -1,11 +1,11 @@
 // Varify that user present or not 
 
-import { jwt } from "jsonwebtoken";
+import  jwt  from "jsonwebtoken";
 import { ApiError } from "../utils/apiError";
 import { asyncHandler } from "../utils/asyncHandler";
 import { User } from "../models/user.model";
 
-
+// if res is not use then add simple _ 
 
 export const verifyJWT = asyncHandler(async(req,_,next) => {
     try {
@@ -29,7 +29,7 @@ export const verifyJWT = asyncHandler(async(req,_,next) => {
         }
     
         // If user find 
-        req.user = user
+        req.user = user;
         next()
     } catch (error) {
         throw new ApiError(401, error?.message || "Authencation Middleware Error :- Invalid Access Token" )

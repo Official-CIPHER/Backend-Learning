@@ -25,11 +25,12 @@ router.route("/register").post(
 ]),registerUser)
 // router.route("/login").post(login)
 
-
+// Login route with post Request
 router.route("/login").post(loginUser)
 
 
 // secure routes
+// Logout route with post request and one verifyJWT middleware
 router.route("/logout").post(verifyJWT , logoutUser)
 
 

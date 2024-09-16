@@ -205,7 +205,7 @@ const loginUser = asyncHandler( async (req,res) => {
 
     // send cookie
     const options = {
-        httpOnly: true,// only modified through server but any public user
+        httpOnly: true,// only modified through server but not any frontend user
         secure: true
     }
 
@@ -236,21 +236,23 @@ const logoutUser = asyncHandler(async(req,res)=>{
                 refreshToken: undefined
             }
         },
-        {
+        { // added to add new value instead of old value in which refresh Token also generated
             new: true
         }
     )
 
+    // Options is required for passing the cookies 
     const options = {
         httpOnly: true,
         secure: true
     }
 
 
+    // .clearCookie use to clear the cookie in which you have to pass token and option
     return res.status(200)
     .clearCookie("accessToken", options)
     .clearCookie("refreshToken", options)
-    .json(new application(200, {}, "User logged Out"))
+    .json(new ApiResponse(200, {}, "User logged Out"))
 })
 
 export {registerUser,
