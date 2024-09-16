@@ -3,6 +3,34 @@ import {ApiError} from "../utils/apiError.js"
 import {User} from "../models/user.model.js"
 import {uploadOnCloudinary} from "../utils/cloudinary.js"
 import {ApiResponse} from "../utils/ApiResponse.js"
+import { application } from "express"
+
+
+// method to generate access and refresh token
+
+const generateAccessAndRefreshTokens = async(userId) => {
+    try {
+        // user find by using id
+        const user = await User.findById(userId)
+        const accessToken = user.generateAccessToken()
+        const refreshToken = user.generateRefreshToken()
+
+
+        // add refresh token in database
+        user.refreshToken = refreshToken
+        // user.save use to save data in database
+        await user.save({ validateBeforeSave: false}) // valid means just save what we write
+
+        return {accessToken,refreshToken}
+
+
+    } catch (error) {
+        throw new ApiError(500, "Something went worng while generating refresh and access token")
+    }
+}
+
+
+
 
 
 const registerUser = asyncHandler(async(req,res) =>{
@@ -127,4 +155,105 @@ const registerUser = asyncHandler(async(req,res) =>{
 
 })
 
-export {registerUser}
+
+// Login -----------------------------------
+const loginUser = asyncHandler( async (req,res) => {
+    // todo 
+    // req body -> data
+    // check username or email
+    // find the user 
+    // password check
+    // access and refresh token generation
+    // send cookie
+    // res succeess
+
+
+    // req body -> data -------
+    const {email, username, password} = req.body
+
+    // check username or email
+    if(!username || !email) {
+        throw new ApiError(400 , "username or email is required")
+    }
+
+    // find the user
+    const user = await User.findOne({
+        $or:[{email},{username}] // this is use to find user either oon the basis of email or username 
+    })
+
+    // User is available to perfrom mongodb mongoose method
+
+    // If user not found
+    if(!user) {
+        throw new ApiError(404, "User does not exist")
+    }
+
+    // all the method define by user then it available on user variable not mongodb mongoose method User
+
+    // Check the password 
+    const isPasswordValid = await user.isPasswordCorrect(password)
+
+    if(!isPasswordValid) {
+        throw new ApiError(401, "Invalid User Password")
+    }
+
+    // access and refresh token generation
+    const {accessToken,refreshToken} = await generateAccessAndRefreshTokens(user._id)
+
+    // update the object otherwise run one more database query
+    const loggedInUser = await User.findById(user._id).select("-password -refreshToken")
+
+    // send cookie
+    const options = {
+        httpOnly: true,// only modified through server but any public user
+        secure: true
+    }
+
+
+    // set the refresh and access token
+    return res
+    .status(200)
+    .cookie("accessToken",accessToken,options)
+    .cookie("refreshToken", refreshToken, options)
+    .json(
+        new ApiResponse(
+            200,
+            {user: loggedInUser,accessToken,refreshToken},
+            "User Logged In Successfully"
+        )
+    )
+
+})
+
+
+// Logout ------------------------------------
+const logoutUser = asyncHandler(async(req,res)=>{
+    // find user but there is no access of id
+    await User.findByIdAndUpdate(
+        req.user._id,
+        {
+            $set:{
+                refreshToken: undefined
+            }
+        },
+        {
+            new: true
+        }
+    )
+
+    const options = {
+        httpOnly: true,
+        secure: true
+    }
+
+
+    return res.status(200)
+    .clearCookie("accessToken", options)
+    .clearCookie("refreshToken", options)
+    .json(new application(200, {}, "User logged Out"))
+})
+
+export {registerUser,
+    loginUser,
+    logoutUser
+}
