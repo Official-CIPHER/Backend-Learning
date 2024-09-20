@@ -262,7 +262,7 @@ const refreshAccessToken = asyncHandler(async(req,res)=>{
     const incomingRefreshToken = req.cookies.refreshToken || req.body.refreshToken // refreshToken form cookies otherwise body 
 
     // if Request not available
-    if(incomingRefreshToken) {
+    if(!incomingRefreshToken) {
         throw new ApiError(401, "Unauthorized Request")
     }
 
