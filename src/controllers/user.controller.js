@@ -4,6 +4,7 @@ import {User} from "../models/user.model.js"
 import {uploadOnCloudinary} from "../utils/cloudinary.js"
 import {ApiResponse} from "../utils/ApiResponse.js"
 import jwt from "jsonwebtoken"
+import mongoose from "mongoose"
 
 
 
@@ -447,6 +448,154 @@ const updateUserCoverImage = asyncHandler(async(req,res)=>{
     .json(new ApiResponse(200,user,"Updated Cover Image"))
 })
 
+
+// Adding Aggregation Pipeline
+const getUserChannelProfile = asyncHandler(async(req,res)=>{
+
+    // get the url
+    const {username} = req.params
+
+    if(!username?.trim()){
+        throw new ApiError(400, "Username is Missing")
+    }
+    
+    // find the document from the user name
+    // User.find({username}) // We can directly apply Aggregation pipeline , as we don't need to take user from database and then apply Aggregation
+
+
+    // aggregate the channel and apply the pipelines
+    const channel = await User.aggregate([
+        // match use to match the document according to specific criteria
+        {
+        $match : {
+            username: username?.toLowerCase()
+            }
+        },
+        //Those document which passed the above pipeline are passed to next pipeline for join the documents
+        {
+           $lookup: {
+            from: "subscriptions",
+            localField: "_id",
+            foreignField: "channel",
+            as: "subscribers"
+           } 
+        },
+        {
+            $lookup: {
+                from: "subscriptions",
+                localField: "_id",
+                foreignField: "subscriber",
+                as: "subscribedTo"
+            }
+        },
+        // $addFields pipeline add the field with existing fields
+        {
+            $addFields: {
+                subscriberCount: {
+                    $size: "$subscribers"
+                },
+                channelsSubscribedToCount: {
+                   $size: "subscribedTo" 
+                },
+                isSubscribed : {
+                    // $cond - accept 3 argument if (to check the expression), then (if true then condition), else (if not else condition)
+                    $cond: {
+                        if: {$in: [req.user?._id,"$subscribers.subscriber"]},
+                        then: true,
+                        else: false
+                    }
+                }
+            }
+        },
+        // Only selected document passes
+        {
+            $project: {
+                fullName: 1,
+                username: 1,
+                subscriberCount: 1,
+                channelsSubscribedToCount: 1,
+                isSubscribed: 1,
+                avatar: 1,
+                coverImage: 1,
+                email: 1
+
+            }
+        }
+    ])
+    console.log(channel);
+    
+    if(!channel?.length){
+        throw new ApiError(404, "Channel does not exists")
+    }
+
+    return res
+    .status(200)
+    .json(new ApiResponse(200,channel[0],"User Channel fetched Successfully"))
+})
+
+
+// Nested pipeline for geting the user history 
+const getWatchHistory = asyncHandler(async(req,res)=>{
+    const user = await User.aggregate([
+        {
+            $match: {
+                _id: new mongoose.Types.ObjectId(req.user._id)
+            }
+        },
+        {
+            $lookup: {
+                from: "videos",
+                localField: "watchHistory",
+                foreignField: "_id",
+                as: "watchHistory",
+                pipeline: [
+                    {
+                        $lookup: {
+                            from: "users",
+                            localField: "owner",
+                            foreignField: "_id",
+                            as: "owner",
+                            pipeline: [
+                                {
+                                    $project: {
+                                        fullName: 1,
+                                        username: 1,
+                                        avatar: 1
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    // return value in the form of Array in owner field  
+                    // Another pipeline to manage array
+                    {
+                        $addFields: {
+                            // To take 1st element from the array 
+                            // There are two method 
+                            // $arrayElementAt[0]
+                            // $first
+                            // It will give the object so futher use (.) to extract the value 
+                            owner: {
+                                $first: "$owner"
+                            }
+                        }
+                    }
+                ]
+            }
+        }
+    ])
+
+    return  res
+    .status(200)
+    .json(
+        new ApiResponse(
+            200,
+            user[0].watchHistory,
+            "Watch history feteched Successfully"
+        )
+    )
+})
+
 export {registerUser,
     loginUser,
     logoutUser,
@@ -455,5 +604,7 @@ export {registerUser,
     getCurrentUser,
     updateAccountDetails,
     updateUserAvatar,
-    updateUserCoverImage
+    updateUserCoverImage,
+    getUserChannelProfile,
+    getWatchHistory
 }
